@@ -8,59 +8,53 @@
 -- Written by the build, from package.json: the version a release carries.
 COMBATMETER_VERSION = "@VERSION@";
 
--- The game server's address, until the launcher can tell it: the page is served beside the game port.
-COMBATMETER_URL = "http://127.0.0.1:7790/addon/combat-meter";
+-- Where the game server serves its addon pages when the launch does not say: the server on this machine. A launch with
+-- "-updsvr:http://<host>:<port>" names another one (the client keeps that option's text, which it uses for nothing else).
+local DEFAULT_SERVER = "http://127.0.0.1:7790";
+local PAGE = "/addon/combat-meter";
+
+local DIALOG = "CombatMeter";
+local BROWSER = "CombatMeterBrowser";
 
 local COLOR_R = 0.85;
 local COLOR_G = 0.71;
 local COLOR_B = 0.42;
 
+local announced = false;
+
 local function say(text)
 	DisplayChatMessage(0, "[Combat Meter] " .. tostring(text), COLOR_R, COLOR_G, COLOR_B);
 end
 
--- Said once, when the character enters the world: at load time the chat may not be there to show it.
-local announced = false;
-
--- Ways of opening the page, tried one by one with "/dps <n>": the stock web authentication answers "No SSL Enabled" before any request leaves
--- the client, so which call reaches the server is found in game. Each says in the chat whether it raised an error.
-local TRIALS = {
-	["1"] = { "the window's browser, with web authentication", function(url) CombatMeterBrowser:LoadUrlWithWebAuth(url); end },
-	["2"] = { "the window's browser, the url in https", function(url) CombatMeterBrowser:LoadUrlWithWebAuth(string.gsub(url, "^http:", "https:")); end },
-	["3"] = { "the global call, three arguments", function(url) LoadUrlWithWebAuth(CombatMeterBrowser, url, ""); end },
-	["4"] = { "the game's own web window", function(url) OpenWeb(url); end },
-	["5"] = { "the game's own web window, with web authentication", function(url) LoadUrlWithWebAuth(url); end },
-};
-
-local function try(number)
-	local trial = TRIALS[number];
-	if (trial == nil) then
-		say("unknown trial " .. tostring(number) .. ": /dps 1 to /dps 5");
-		return;
+local function server()
+	local named = GetConsole("g_launcherUpdateURL");
+	if (named ~= nil and string.find(named, "^https?://") ~= nil) then
+		return (string.gsub(named, "/+$", ""));
 	end
-	local ok, problem = pcall(trial[2], COMBATMETER_URL .. "?trial=" .. number);
-	if (ok) then
-		say("trial " .. number .. " (" .. trial[1] .. "): called");
-	else
-		say("trial " .. number .. " (" .. trial[1] .. "): " .. tostring(problem));
-	end
+	return DEFAULT_SERVER;
 end
 
-function CombatMeter_Toggle(arg)
-	g_AddonName = "CombatMeter";
-	local number = arg and string.match(tostring(arg), "%d") or nil;
-	if (number ~= nil) then
-		CombatMeter:Show();
-		try(number);
+-- The page belongs to the character named in its address, when the server sees the request come from where the game connection does.
+local function open()
+	local view = GetWebViewIndex(DIALOG, BROWSER);
+	if (view == nil) then
+		say("the window has no browser view");
 		return;
 	end
+	-- The installed client's LoadUrlWithWebAuth loads the address in the view as it is: the installer patches it, the stock one only knew the
+	-- publisher's web sign-on, which is gone.
+	LoadUrlWithWebAuth(view, server() .. PAGE .. "?name=" .. tostring(UnitName("player")));
+end
+
+function CombatMeter_Toggle()
+	g_AddonName = DIALOG;
 	if (CombatMeter:IsVisible() == 1) then
 		CombatMeter:Hide();
 		return;
 	end
 	CombatMeter:Show();
 	-- loaded at each opening: a server that was not up the first time is reached the next
-	try("1");
+	open();
 end
 
 function CombatMeter_OnEvent(this, event, ...)
@@ -71,12 +65,12 @@ function CombatMeter_OnEvent(this, event, ...)
 end
 
 function CombatMeter_OnLoad()
-	g_AddonName = "CombatMeter";
+	g_AddonName = DIALOG;
 	SlashCmdList["COMBATMETER"] = CombatMeter_Toggle;
 	SLASH_COMBATMETER1 = "/dps";
 	SLASH_COMBATMETER2 = "/meter";
 	CombatMeterStatus:SetText("Combat Meter " .. COMBATMETER_VERSION);
-	CombatMeterBrowser:CreateWebView();
+	CreateWebView(DIALOG, BROWSER);
 	CombatMeter:Hide();
 	CombatMeter:RegisterEvent("PLAYER_ENTERING_WORLD");
 end

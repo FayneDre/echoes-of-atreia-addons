@@ -21,11 +21,17 @@ const COPIED = [
   'Plugin/RelicCalc/RelicCalc.pak.sig'
 ]
 
+/** The stock `game.dll`: the client's own, or the copy its backup keeps once the addons are installed there. */
+export const stockGameDll = existsSync(join(realClient, 'EchoesAddonsBackup', 'bin64', 'game.dll'))
+  ? join(realClient, 'EchoesAddonsBackup', 'bin64', 'game.dll')
+  : join(realClient, 'bin64', 'game.dll')
+
 export async function copyOfClient(): Promise<string> {
   const dir = await mkdtemp(join(tmpdir(), 'echoes-addons-client-'))
   for (const path of COPIED) {
     await mkdir(dirname(join(dir, path)), { recursive: true })
     await copyFile(join(realClient, path), join(dir, path))
   }
+  await copyFile(stockGameDll, join(dir, 'bin64', 'game.dll'))
   return dir
 }

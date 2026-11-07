@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <Screen widget_cnt="8">
-  <Dialog name="CombatMeter" frame="300,200,380,300" text="Combat Meter" close_offset="4,1" close_preset="v5_close" flag="close;title" preset="v5_dialog2" shadow_offset="8,8" title_height="25" title_offset="0,5">
+  <Dialog name="CombatMeter" frame="300,200,420,340" text="Combat Meter" close_offset="4,1" close_preset="v5_close" flag="close;title" preset="v5_dialog2" shadow_offset="8,8" title_height="25" title_offset="0,5">
     <Scripts>
       <OnLoad>CombatMeter_OnLoad();</OnLoad>
       <OnEvent>CombatMeter_OnEvent(this, event, ...);</OnEvent>
     </Scripts>
-    <Widget type="static" name="CombatMeterStatus" frame="8,30,364,20" flag="not_multiline;not_wordwrap;truncate" font="ui_static_title"/>
-    <Widget type="Browser" name="CombatMeterBrowser" frame="5,52,370,240"/>
+    <Widget type="static" name="CombatMeterStatus" frame="8,30,404,20" flag="not_multiline;not_wordwrap;truncate" font="ui_static_title"/>
+    <Widget type="Browser" name="CombatMeterBrowser" frame="5,52,410,280"/>
   </Dialog>
 </Screen>

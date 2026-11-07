@@ -12,7 +12,9 @@ En jeu
 Desinstaller
   Double-clic sur uninstall.bat : le client redevient exactement comme avant.
 
-Ce qui change dans le client : Pub.key et trois fichiers .sig (bin32, func_pet, RelicCalc), dont les originaux sont gardes
-dans EchoesAddonsBackup, et le dossier Plugin\CombatMeter. Aucun executable n'est modifie.
+Ce qui change dans le client : Pub.key et trois fichiers .sig (bin32, func_pet, RelicCalc), bin64\game.dll (corrige pour que
+la fenetre d'un addon puisse ouvrir une page), dont les originaux sont gardes dans EchoesAddonsBackup, et le dossier
+Plugin\CombatMeter.
 
-La fenetre affiche une page du serveur de jeu (port 7790) : le serveur doit etre une version qui la sert.
+La fenetre affiche une page du serveur de jeu (port 7790) : le serveur doit etre une version qui la sert. Par defaut c'est le
+serveur du meme ordinateur ; un serveur ailleurs se donne au lancement du jeu : -updsvr:http://<adresse>:7790

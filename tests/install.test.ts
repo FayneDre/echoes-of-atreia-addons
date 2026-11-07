@@ -5,6 +5,8 @@ import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { build } from '../tools/build.ts'
 import { readXorTable } from '../tools/clientFiles.ts'
+import { GAME_DLL, GAME_DLL_PATCHED_SHA256, GAME_DLL_STOCK_SHA256 } from '../tools/gamePatch.ts'
+import { sha256 } from '../tools/clientFiles.ts'
 import { BACKUP_DIR, install, uninstall, verifyClient } from '../tools/install.ts'
 import { readPak } from '../tools/pak.ts'
 import { generateSigningKey } from '../tools/signing.ts'
@@ -44,15 +46,27 @@ describe.skipIf(!hasClient)('build, install and uninstall', () => {
     await install(join(repo, 'dist', 'client'), client)
     expect(await verifyClient(client)).toContain('Plugin/Hello/Hello.pak')
     expect(await readFile(join(client, 'Pub.key'))).not.toEqual(stockKey)
+    expect(sha256(await readFile(join(client, GAME_DLL)))).toBe(GAME_DLL_PATCHED_SHA256)
 
     // a second install, a rebuild with the same key say, keeps the stock files in the backup
     await install(join(repo, 'dist', 'client'), client)
     await uninstall(client)
     expect(await readFile(join(client, 'Pub.key'))).toEqual(stockKey)
     expect(await readFile(join(client, 'bin32', 'bin32.pak.sig'))).toEqual(stockSignature)
+    expect(sha256(await readFile(join(client, GAME_DLL)))).toBe(GAME_DLL_STOCK_SHA256)
     expect(existsSync(join(client, 'Plugin', 'Hello'))).toBe(false)
     expect(existsSync(join(client, BACKUP_DIR))).toBe(false)
     expect(await verifyClient(client)).toHaveLength(3)
+  })
+
+  it('refuses a game.dll that is neither the stock file nor the patched one, before touching anything', async () => {
+    const client = await copyOfClient()
+    const stockKey = await readFile(join(client, 'Pub.key'))
+    const repo = await repoWithAddon()
+    await build(repo, client, generateSigningKey())
+    await writeFile(join(client, GAME_DLL), 'changed')
+    await expect(install(join(repo, 'dist', 'client'), client)).rejects.toThrow(/neither the stock 4.8 file nor the patched one/)
+    expect(await readFile(join(client, 'Pub.key'))).toEqual(stockKey)
   })
 
   it('refuses a client whose signed archives are not the stock ones', async () => {

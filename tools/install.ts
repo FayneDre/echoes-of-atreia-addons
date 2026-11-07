@@ -1,12 +1,14 @@
 import { copyFile, mkdir, readdir, readFile, rm, rmdir, stat, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { checkStockArchives, PUBLIC_KEY, STOCK_SIGNED_ARCHIVES } from './clientFiles.ts'
+import { GAME_DLL, gameDllState, patchGameDll } from './gamePatch.ts'
 import { verifySignatureFile } from './signing.ts'
 
 /**
  * Puts a built tree (`dist/client`) over a client, and takes it off again leaving the client as it was.
  * Every client file replaced is kept first in `EchoesAddonsBackup/`, once: installing again over an install keeps the stock files, not ours.
  * The backup's `backup.json` says what was replaced and what was added, which is all an uninstall needs.
+ * The client's `game.dll` is patched on the way (see `gamePatch.ts`), its stock file kept like the others.
  */
 
 export const BACKUP_DIR = 'EchoesAddonsBackup'
@@ -50,6 +52,9 @@ async function readBackup(clientDir: string): Promise<Backup> {
 export async function install(builtDir: string, clientDir: string): Promise<string[]> {
   await checkStockArchives(clientDir)
   const backup = await readBackup(clientDir)
+  if ((await gameDllState(clientDir)) === 'patched' && !backup.replaced.includes(GAME_DLL)) {
+    throw new Error(`${GAME_DLL} is patched already but the backup has no stock copy of it: an uninstall could not put it back`)
+  }
   const files = await listFiles(builtDir)
   for (const path of files) {
     const target = join(clientDir, path)
@@ -67,6 +72,13 @@ export async function install(builtDir: string, clientDir: string): Promise<stri
     }
     await mkdir(dirname(target), { recursive: true })
     await copyFile(join(builtDir, path), target)
+  }
+  const keptAlready = backup.replaced.includes(GAME_DLL)
+  await patchGameDll(clientDir, keptAlready ? null : join(clientDir, BACKUP_DIR, GAME_DLL))
+  if (!keptAlready) {
+    backup.replaced.push(GAME_DLL)
+    await writeFile(join(clientDir, BACKUP_DIR, BACKUP_MANIFEST), `${JSON.stringify(backup, null, 2)}
+`)
   }
   await verifyClient(clientDir)
   return files

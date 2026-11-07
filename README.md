@@ -5,7 +5,7 @@ In-game interface addons for a self-hosted Aion 4.8 server with bots. The Echoes
 
 | Addon | What it shows | State |
 |---|---|---|
-| [CombatMeter](addons/CombatMeter) | the group's damage and healing, per member, bots included | prototype: a window and a page from the server |
+| [CombatMeter](addons/CombatMeter) | the group's damage and healing, per member and skill, bots included | beta: verified in game on the server's machine |
 
 ## How the 4.8 client takes an addon
 
@@ -14,9 +14,14 @@ In-game interface addons for a self-hosted Aion 4.8 server with bots. The Echoes
   `bin64/crysystem.dll`. The tools read the table there: nothing of the client is copied into this repository.
 - Each archive is signed: `<Name>.pak.sig` is an RSA PKCS#1 v1.5 signature of the whole archive with SHA-1, checked with the key in `Pub.key`.
   Installing puts our key there and signs the client's three other signed archives again (`bin32.pak`, `func_pet.pak`, `RelicCalc.pak`), their
-  content unchanged. No executable is modified.
+  content unchanged.
 - The client's Lua cannot tell who healed whom: no healing event, only damage events without a reliable source. So the server counts, and an addon
-  shows the server's page in its window (`CreateWebView`, then `LoadUrlWithWebAuth`, which sends the session token the server already gave).
+  shows the server's page in its window: `CreateWebView(dialog, widget)`, then `LoadUrlWithWebAuth(GetWebViewIndex(dialog, widget), url)`.
+- That call went through the publisher's web sign-on, which is gone: installing patches `bin64/game.dll` (61 bytes, [tools/gamePatch.ts](tools/gamePatch.ts))
+  so that it loads the address as it is. Only the stock file is patched, recognised by its fingerprint, and on the player's machine; the stock
+  file is kept with the others and put back by the uninstall.
+- The page is the server's on the same machine (`http://127.0.0.1:7790`) unless the client is launched with `-updsvr:http://<host>:<port>`, an
+  option whose text the client keeps and uses for nothing else, and which the addon reads (`GetConsole("g_launcherUpdateURL")`).
 
 ## Tools
 
