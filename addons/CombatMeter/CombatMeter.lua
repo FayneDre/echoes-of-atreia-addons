@@ -5,7 +5,8 @@
 -- shows: the client's own events cannot say who healed.    --
 --------------------------------------------------------------
 
-COMBATMETER_VERSION = "0.1.0";
+-- Written by the build, from package.json: the version a release carries.
+COMBATMETER_VERSION = "@VERSION@";
 
 -- The game server's address, until the launcher can tell it: the page is served beside the game port.
 COMBATMETER_URL = "http://127.0.0.1:7790/addon/combat-meter";
@@ -18,7 +19,8 @@ local function say(text)
 	DisplayChatMessage(0, "[Combat Meter] " .. tostring(text), COLOR_R, COLOR_G, COLOR_B);
 end
 
-local loaded = false;
+-- Said once, when the character enters the world: at load time the chat may not be there to show it.
+local announced = false;
 
 function CombatMeter_Toggle(arg)
 	g_AddonName = "CombatMeter";
@@ -27,13 +29,15 @@ function CombatMeter_Toggle(arg)
 		return;
 	end
 	CombatMeter:Show();
-	if (not loaded) then
-		CombatMeterBrowser:LoadUrlWithWebAuth(COMBATMETER_URL);
-		loaded = true;
-	end
+	-- loaded at each opening: a server that was not up the first time is reached the next
+	CombatMeterBrowser:LoadUrlWithWebAuth(COMBATMETER_URL);
 end
 
 function CombatMeter_OnEvent(this, event, ...)
+	if (event == "PLAYER_ENTERING_WORLD" and not announced) then
+		announced = true;
+		say("loaded " .. COMBATMETER_VERSION .. ": /dps opens the window");
+	end
 end
 
 function CombatMeter_OnLoad()
@@ -44,5 +48,5 @@ function CombatMeter_OnLoad()
 	CombatMeterStatus:SetText("Combat Meter " .. COMBATMETER_VERSION);
 	CombatMeterBrowser:CreateWebView();
 	CombatMeter:Hide();
-	say("loaded " .. COMBATMETER_VERSION .. ": /dps opens the window");
+	CombatMeter:RegisterEvent("PLAYER_ENTERING_WORLD");
 end

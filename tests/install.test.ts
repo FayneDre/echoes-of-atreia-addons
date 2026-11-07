@@ -15,7 +15,8 @@ async function repoWithAddon(): Promise<string> {
   await mkdir(join(repo, 'addons', 'Hello'), { recursive: true })
   await writeFile(join(repo, 'addons', 'Hello', 'Hello.toc'), '## Title: Hello\nHello.xml\nHello.lua\n')
   await writeFile(join(repo, 'addons', 'Hello', 'Hello.xml'), '<?xml version="1.0" encoding="UTF-8" ?>\n<Screen></Screen>\n')
-  await writeFile(join(repo, 'addons', 'Hello', 'Hello.lua'), 'function Hello_OnLoad() end\n')
+  await writeFile(join(repo, 'package.json'), '{ "version": "1.2.3-beta.4" }\n')
+  await writeFile(join(repo, 'addons', 'Hello', 'Hello.lua'), 'HELLO_VERSION = "@VERSION@";\nfunction Hello_OnLoad() end\n')
   return repo
 }
 
@@ -30,6 +31,7 @@ describe.skipIf(!hasClient)('build, install and uninstall', () => {
     const xml = entries[1]!.data
     expect(xml.subarray(0, 2).toString('hex')).toBe('fffe')
     expect(xml.subarray(2).toString('utf16le')).toMatch(/^<\?xml version="1.0" encoding="UTF-16" \?>/)
+    expect(entries[2]!.data.toString('utf8')).toContain('HELLO_VERSION = "1.2.3-beta.4";')
   })
 
   it('installs so that every signed archive checks, and uninstalls to the stock files byte for byte', async () => {

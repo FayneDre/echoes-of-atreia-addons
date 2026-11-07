@@ -9,6 +9,8 @@ import { promisify } from 'node:util'
  */
 
 const SCRIPTS = ['install.ps1', 'uninstall.ps1']
+/** What a person double-clicks: a downloaded, unsigned script is refused by PowerShell's execution policy, a batch file passing Bypass is not. */
+const LAUNCHERS = ['install.bat', 'uninstall.bat']
 const README = 'LISEZMOI.txt'
 const BYTE_ORDER_MARK = String.fromCharCode(0xfeff)
 
@@ -26,12 +28,15 @@ export async function packageRelease(repoDir: string): Promise<string> {
     const text = windowsLines(await readFile(join(repoDir, 'packaging', script), 'utf8'))
     await writeFile(join(stage, script), text.startsWith(BYTE_ORDER_MARK) ? text : BYTE_ORDER_MARK + text, 'utf8')
   }
+  for (const launcher of LAUNCHERS) {
+    await writeFile(join(stage, launcher), windowsLines(await readFile(join(repoDir, 'packaging', launcher), 'utf8')), 'utf8')
+  }
   await writeFile(join(stage, README), windowsLines(await readFile(join(repoDir, 'packaging', README), 'utf8')), 'utf8')
 
   const zip = join(repoDir, 'dist', `EchoesAddons-${version}.zip`)
   await rm(zip, { force: true })
   // Windows' own tar writes zip archives (-a picks the format from the name); a GNU tar first on the PATH (Git's) does not
   const tar = process.platform === 'win32' ? join(process.env.SystemRoot ?? 'C:/Windows', 'System32', 'tar.exe') : 'tar'
-  await promisify(execFile)(tar, ['-a', '-c', '-f', zip, '-C', stage, 'client', ...SCRIPTS, README])
+  await promisify(execFile)(tar, ['-a', '-c', '-f', zip, '-C', stage, 'client', ...SCRIPTS, ...LAUNCHERS, README])
   return zip
 }

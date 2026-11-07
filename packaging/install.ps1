@@ -1,5 +1,5 @@
 # Installe les addons Echoes of Atreia dans un client Aion 4.8.
-# Clic droit > Executer avec PowerShell, ou : powershell -ExecutionPolicy Bypass -File install.ps1 -Client "D:\Jeux\Aion\Aion 4.8 NA"
+# Lance par install.bat (double-clic), ou : powershell -ExecutionPolicy Bypass -File install.ps1 -Client "D:\Jeux\Aion\Aion 4.8 NA"
 # Chaque fichier du client remplace est garde dans <client>\EchoesAddonsBackup ; uninstall.ps1 remet le client tel qu'il etait.
 param([string]$Client)
 

@@ -35,12 +35,17 @@ export function clientText(name: string, text: string): Buffer {
   return Buffer.from(text, 'utf8')
 }
 
-export async function addonEntries(addonDir: string, name: string): Promise<PakEntry[]> {
+/** What the build writes into an addon's files: `@VERSION@`, the version of package.json, so an addon can say which release it is. */
+export function fillIn(text: string, version: string): string {
+  return text.replaceAll('@VERSION@', version)
+}
+
+export async function addonEntries(addonDir: string, name: string, version: string): Promise<PakEntry[]> {
   const tocName = `${name}.toc`
   const toc = await readFile(join(addonDir, tocName), 'utf8')
   const entries: PakEntry[] = [{ name: tocName, data: clientText(tocName, toc) }]
   for (const file of tocFiles(toc)) {
-    entries.push({ name: file, data: clientText(file, await readFile(join(addonDir, file), 'utf8')) })
+    entries.push({ name: file, data: clientText(file, fillIn(await readFile(join(addonDir, file), 'utf8'), version)) })
   }
   return entries
 }
@@ -48,6 +53,7 @@ export async function addonEntries(addonDir: string, name: string): Promise<PakE
 export async function build(repoDir: string, clientDir: string, privateKeyPem: string): Promise<BuiltFile[]> {
   await checkStockArchives(clientDir)
   const table = await readXorTable(clientDir)
+  const { version } = JSON.parse(await readFile(join(repoDir, 'package.json'), 'utf8')) as { version: string }
   const out = join(repoDir, 'dist', 'client')
   await rm(join(repoDir, 'dist'), { recursive: true, force: true })
   const files = new Map<string, Buffer>()
@@ -58,7 +64,7 @@ export async function build(repoDir: string, clientDir: string, privateKeyPem: s
       continue
     }
     const name = entry.name
-    const pak = writePak(await addonEntries(join(addonsDir, name), name), table)
+    const pak = writePak(await addonEntries(join(addonsDir, name), name, version), table)
     files.set(`Plugin/${name}/${name}.pak`, pak)
     files.set(`Plugin/${name}/${name}.pak.sig`, Buffer.from(signatureFile(pak, privateKeyPem), 'latin1'))
   }
