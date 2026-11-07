@@ -1,0 +1,5 @@
+node_modules/
+dist/
+*.log
+# the signing key never enters the repository
+*.pem

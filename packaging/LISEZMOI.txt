@@ -1,0 +1,18 @@
+Addons Echoes of Atreia pour le client Aion 4.8
+
+Installer
+  1. Fermer le jeu.
+  2. Clic droit sur install.ps1 > Executer avec PowerShell.
+  3. Donner le dossier du client (celui qui contient bin64 et Pub.key).
+
+En jeu
+  - A la connexion du personnage, la ligne [Combat Meter] loaded apparait dans le chat.
+  - /dps (ou /meter) ouvre et ferme la fenetre.
+
+Desinstaller
+  Clic droit sur uninstall.ps1 > Executer avec PowerShell : le client redevient exactement comme avant.
+
+Ce qui change dans le client : Pub.key et trois fichiers .sig (bin32, func_pet, RelicCalc), dont les originaux sont gardes
+dans EchoesAddonsBackup, et le dossier Plugin\CombatMeter. Aucun executable n'est modifie.
+
+La fenetre affiche une page du serveur de jeu (port 7790) : le serveur doit etre une version qui la sert.

@@ -1,0 +1,25 @@
+{
+  "name": "echoes-of-atreia-addons",
+  "version": "0.1.0-beta.1",
+  "description": "In-game interface addons for a self-hosted Aion 4.8 server with bots, installed by the Echoes of Atreia launcher.",
+  "license": "GPL-3.0-or-later",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "build": "node tools/cli.ts build",
+    "install-client": "node tools/cli.ts install",
+    "uninstall-client": "node tools/cli.ts uninstall",
+    "verify-client": "node tools/cli.ts verify",
+    "typecheck": "tsc --noEmit",
+    "test:unit": "vitest run",
+    "test": "npm run typecheck && npm run test:unit"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "typescript": "^7.0.2",
+    "vitest": "^5.1.0"
+  }
+}

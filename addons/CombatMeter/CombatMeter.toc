@@ -1,0 +1,4 @@
+## Title: CombatMeter
+## Notes: The group's damage and healing, counted by the game server
+CombatMeter.xml
+CombatMeter.lua
