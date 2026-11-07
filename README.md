@@ -37,8 +37,8 @@ The tests that need the client's files read them from `AION_CLIENT_HOME` (by def
 
 ## Releases
 
-Pre-releases are tagged `vX.Y.Z-beta.N` on `develop` and carry the zip of `package`; whoever installs it needs neither Node nor these tools
-(`install.ps1`, `uninstall.ps1`, instructions in `LISEZMOI.txt`). `main` moves only once a version is validated in game.
+Everything happens on `main`. Pre-releases are tagged `vX.Y.Z-beta.N` and carry the zip of `package`; whoever installs it needs neither Node
+nor these tools (`install.ps1`, `uninstall.ps1`, instructions in `LISEZMOI.txt`).
 
 ## Licence
 
