@@ -8,8 +8,31 @@ import { publicKeyFile, signatureFile } from './signing.ts'
  * Builds every addon of `addons/` into `dist/client/`, a tree laid out as the client folder is: what an install copies over the client.
  * - `Plugin/<Name>/<Name>.pak` and its `.sig`, for each addon;
  * - `Pub.key`, our key, and the `.sig` of each stock signed archive signed again with it (their content unchanged).
- * And `dist/manifest.json`, each file with its fingerprint, for the launcher.
+ * And `dist/manifest.json`, for the launcher: the release, the server it needs, and each file with its fingerprint.
  */
+
+/**
+ * What a release says of itself, from package.json: its version, and the game server it needs (the first release serving the pages, and the level
+ * of the pages, `AddonWebServer.API_LEVEL`, which the server's own manifest.json names `addonApiLevel`).
+ */
+export interface Release {
+  version: string
+  minimumServer: string
+  addonApiLevel: number
+}
+
+export async function readRelease(repoDir: string): Promise<Release> {
+  const pkg = JSON.parse(await readFile(join(repoDir, 'package.json'), 'utf8')) as {
+    version: string
+    echoes?: { minimumServer?: string; addonApiLevel?: number }
+  }
+  const minimumServer = pkg.echoes?.minimumServer
+  const addonApiLevel = pkg.echoes?.addonApiLevel
+  if (!minimumServer || addonApiLevel === undefined || !Number.isInteger(addonApiLevel)) {
+    throw new Error('package.json has no "echoes": { "minimumServer", "addonApiLevel" }: the server a release needs must be said')
+  }
+  return { version: pkg.version, minimumServer, addonApiLevel }
+}
 
 export interface BuiltFile {
   path: string
@@ -35,17 +58,20 @@ export function clientText(name: string, text: string): Buffer {
   return Buffer.from(text, 'utf8')
 }
 
-/** What the build writes into an addon's files: `@VERSION@`, the version of package.json, so an addon can say which release it is. */
-export function fillIn(text: string, version: string): string {
-  return text.replaceAll('@VERSION@', version)
+/**
+ * What the build writes into an addon's files, so an addon can say which release it is and which server it needs: `@VERSION@` and
+ * `@MINIMUM_SERVER@`.
+ */
+export function fillIn(text: string, release: Release): string {
+  return text.replaceAll('@VERSION@', release.version).replaceAll('@MINIMUM_SERVER@', release.minimumServer)
 }
 
-export async function addonEntries(addonDir: string, name: string, version: string): Promise<PakEntry[]> {
+export async function addonEntries(addonDir: string, name: string, release: Release): Promise<PakEntry[]> {
   const tocName = `${name}.toc`
   const toc = await readFile(join(addonDir, tocName), 'utf8')
   const entries: PakEntry[] = [{ name: tocName, data: clientText(tocName, toc) }]
   for (const file of tocFiles(toc)) {
-    entries.push({ name: file, data: clientText(file, fillIn(await readFile(join(addonDir, file), 'utf8'), version)) })
+    entries.push({ name: file, data: clientText(file, fillIn(await readFile(join(addonDir, file), 'utf8'), release)) })
   }
   return entries
 }
@@ -53,7 +79,7 @@ export async function addonEntries(addonDir: string, name: string, version: stri
 export async function build(repoDir: string, clientDir: string, privateKeyPem: string): Promise<BuiltFile[]> {
   await checkStockArchives(clientDir)
   const table = await readXorTable(clientDir)
-  const { version } = JSON.parse(await readFile(join(repoDir, 'package.json'), 'utf8')) as { version: string }
+  const release = await readRelease(repoDir)
   const out = join(repoDir, 'dist', 'client')
   await rm(join(repoDir, 'dist'), { recursive: true, force: true })
   const files = new Map<string, Buffer>()
@@ -64,7 +90,7 @@ export async function build(repoDir: string, clientDir: string, privateKeyPem: s
       continue
     }
     const name = entry.name
-    const pak = writePak(await addonEntries(join(addonsDir, name), name, version), table)
+    const pak = writePak(await addonEntries(join(addonsDir, name), name, release), table)
     files.set(`Plugin/${name}/${name}.pak`, pak)
     files.set(`Plugin/${name}/${name}.pak.sig`, Buffer.from(signatureFile(pak, privateKeyPem), 'latin1'))
   }
@@ -80,6 +106,6 @@ export async function build(repoDir: string, clientDir: string, privateKeyPem: s
     await writeFile(join(out, path), data)
     built.push({ path, sha256: sha256(data) })
   }
-  await writeFile(join(repoDir, 'dist', 'manifest.json'), `${JSON.stringify({ files: built }, null, 2)}\n`)
+  await writeFile(join(repoDir, 'dist', 'manifest.json'), `${JSON.stringify({ ...release, files: built }, null, 2)}\n`)
   return built
 }

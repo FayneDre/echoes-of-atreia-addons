@@ -12,6 +12,8 @@ its own repository, never here. [README.md](README.md) says how the client takes
 - A new addon gets its name in `TRUSTED_ADDONS` (tools/gamePatch.ts): the client loads no other plugin that asks for `## Require`
   ([docs/game-dll.md](docs/game-dll.md)). Changing the patch moves the old patched fingerprint to `GAME_DLL_OUTDATED_SHA256` and the edits to
   `packaging/install.ps1`; the tests say which.
+- The server a release needs lives in `package.json` (`echoes.minimumServer`, `echoes.addonApiLevel`): raise them with an addon that needs newer
+  pages. A release is made with `node tools/cli.ts release`, its notes in `docs/release-notes/` (French and English), never by hand.
 - Before calling something done: `npm test`. What only the game can show (an addon loading, a window opening) is checked in game and said so.
 
 ## Conventions

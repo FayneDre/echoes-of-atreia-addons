@@ -43,8 +43,10 @@ node tools/cli.ts keygen                       # once: the signing key, in %APPD
 node tools/cli.ts build --client "<client>"    # dist/client, laid out as the client folder, and dist/manifest.json
 node tools/cli.ts package                      # dist/EchoesAddons-<version>.zip: dist/client and the PowerShell install scripts
 node tools/cli.ts install --client "<client>"  # over the client, what it replaces kept in <client>/EchoesAddonsBackup
+node tools/cli.ts install --dry-run --client "<client>"  # what an install would do, nothing written (install.ps1 -DryRun alike)
 node tools/cli.ts uninstall --client "<client>"
 node tools/cli.ts verify --client "<client>"   # every signed archive against the Pub.key in place
+node tools/cli.ts release --client "<client>"  # checks, tests, builds and packages a release with its notes; --publish publishes it
 npm test
 ```
 
@@ -54,6 +56,15 @@ The tests that need the client's files read them from `AION_CLIENT_HOME` (by def
 
 Everything happens on `main`. Pre-releases are tagged `vX.Y.Z-beta.N` and carry the zip of `package`; whoever installs it needs neither Node
 nor these tools (`install.ps1`, `uninstall.ps1`, instructions in `LISEZMOI.txt`).
+
+A release is made by `node tools/cli.ts release` ([tools/release.ts](tools/release.ts) says what it refuses): the version of `package.json`,
+an entry in [docs/release-notes/current.md](docs/release-notes/current.md) and its English twin, `npm test`, then the zip, `dist/manifest.json`
+and the notes, published with `--publish`.
+
+**The server a release needs** is said in `package.json` (`echoes.minimumServer`, the first server release serving the pages, and
+`echoes.addonApiLevel`, the level of the pages it needs). The build writes both into `dist/manifest.json` and into the addons (the chat says it
+at the first opening of a window), the release into the first line of its notes; the server's own `manifest.json` carries the level it offers
+(`addonApiLevel`), for the launcher to compare.
 
 ## Licence
 

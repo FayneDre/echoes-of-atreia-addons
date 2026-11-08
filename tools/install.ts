@@ -68,20 +68,25 @@ async function readBackup(clientDir: string): Promise<Backup> {
   }
 }
 
-/**
- * The running game holds `game.dll` open: refused before anything is written, rather than stopping halfway with the system's lock error. Opening
- * the file for writing changes nothing in it.
- */
-async function checkGameClosed(clientDir: string): Promise<void> {
+/** The running game holds `game.dll` open. Opening the file for writing changes nothing in it. */
+async function gameRunning(clientDir: string): Promise<boolean> {
   try {
     const handle = await open(join(clientDir, GAME_DLL), 'r+')
     await handle.close()
+    return false
   } catch (error) {
     const code = (error as NodeJS.ErrnoException).code
     if (code === 'EBUSY' || code === 'EPERM' || code === 'EACCES') {
-      throw new Error('the game is running: close it first')
+      return true
     }
     throw error
+  }
+}
+
+/** Refused before anything is written, rather than stopping halfway with the system's lock error. */
+async function checkGameClosed(clientDir: string): Promise<void> {
+  if (await gameRunning(clientDir)) {
+    throw new Error('the game is running: close it first')
   }
 }
 
@@ -95,15 +100,57 @@ async function removeAdded(clientDir: string, path: string): Promise<void> {
   await rmdir(dirname(join(clientDir, path))).catch(() => undefined)
 }
 
-export async function install(builtDir: string, clientDir: string): Promise<string[]> {
+/** What an install reads before it writes anything, and every refusal it makes there. */
+async function prepare(builtDir: string, clientDir: string): Promise<{ backup: Backup; dllState: GameDllState; files: string[] }> {
   await checkStockArchives(clientDir)
   const backup = await readBackup(clientDir)
-  await checkGameClosed(clientDir)
   const dllState = await gameDllState(clientDir)
   if (dllState !== 'stock' && !backup.replaced.includes(GAME_DLL)) {
     throw new Error(`${GAME_DLL} is patched already but the backup has no stock copy of it: an uninstall could not put it back`)
   }
-  const files = await listFiles(builtDir)
+  return { backup, dllState, files: await listFiles(builtDir) }
+}
+
+/** What an install would do, found by the same reading and refusals, with nothing written. */
+export interface InstallPlan {
+  gameRunning: boolean
+  /** `stock` and `outdated` are patched, `patched` is left as it is. */
+  gameDll: GameDllState
+  /** client files kept in the backup, then replaced */
+  replaced: string[]
+  /** files the client does not have */
+  added: string[]
+  /** files an earlier install put there, written again */
+  rewritten: string[]
+  /** files of an addon an earlier install put there and this build no longer carries */
+  removed: string[]
+}
+
+export async function planInstall(builtDir: string, clientDir: string): Promise<InstallPlan> {
+  const { backup, dllState, files } = await prepare(builtDir, clientDir)
+  const plan: InstallPlan = {
+    gameRunning: await gameRunning(clientDir),
+    gameDll: dllState,
+    replaced: [],
+    added: [],
+    rewritten: [],
+    removed: backup.added.filter((added) => !files.includes(added))
+  }
+  for (const path of files) {
+    if (backup.replaced.includes(path) || backup.added.includes(path)) {
+      plan.rewritten.push(path)
+    } else if (await exists(join(clientDir, path))) {
+      plan.replaced.push(path)
+    } else {
+      plan.added.push(path)
+    }
+  }
+  return plan
+}
+
+export async function install(builtDir: string, clientDir: string): Promise<string[]> {
+  const { backup, dllState, files } = await prepare(builtDir, clientDir)
+  await checkGameClosed(clientDir)
   // an addon an earlier install put there and this build no longer carries: its files go, the backup forgets them
   for (const path of backup.added.filter((added) => !files.includes(added))) {
     await removeAdded(clientDir, path)

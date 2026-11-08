@@ -7,6 +7,8 @@
 
 -- Written by the build, from package.json: the version a release carries.
 COMBATMETER_VERSION = "@VERSION@";
+-- the first game server release that serves the page: an older one leaves the window empty, which the chat says at the first opening
+local MINIMUM_SERVER = "@MINIMUM_SERVER@";
 
 -- Where the game server serves its addon pages when the launch does not say: the server on this machine. A launch with
 -- "-updsvr:http://<host>:<port>" names another one (the client keeps that option's text, which it uses for nothing else). GetConsole
@@ -52,7 +54,7 @@ local function load()
 	local url = server() .. PAGE .. "?name=" .. tostring(UnitName("player"));
 	if (not shown) then
 		shown = true;
-		say("page: " .. url);
+		say("page: " .. url .. " (an empty window: that server does not serve it, it needs server v" .. MINIMUM_SERVER .. " or later)");
 	end
 	-- The installed client's LoadUrlWithWebAuth loads the address in the view as it is: the installer patches it, the stock one only knew the
 	-- publisher's web sign-on, which is gone.

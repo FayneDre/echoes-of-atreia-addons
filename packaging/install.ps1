@@ -1,10 +1,11 @@
 # Installe les addons Echoes of Atreia dans un client Aion 4.8.
-# Lance par install.bat (double-clic), ou : powershell -ExecutionPolicy Bypass -File install.ps1 -Client "D:\Jeux\Aion\Aion 4.8 NA" [-NoPause]
+# Lance par install.bat (double-clic), ou : powershell -ExecutionPolicy Bypass -File install.ps1 -Client "D:\Jeux\Aion\Aion 4.8 NA" [-NoPause] [-DryRun]
+# -DryRun dit ce que l'installation ferait, sans rien ecrire (le jeu peut alors rester ouvert).
 # Chaque fichier du client remplace est garde dans <client>\EchoesAddonsBackup ; uninstall.ps1 remet le client tel qu'il etait.
 # bin64\game.dll est corrige sur place (voir tools/gamePatch.ts et docs/game-dll.md) : la fenetre d'un addon peut ouvrir une page, et le
 # client fait confiance a nos addons comme aux plugins de l'editeur (sans quoi un addon qui demande le menu du jeu n'est pas charge).
 # Les valeurs ci-dessous sont celles de tools/gamePatch.ts ; tests/packaging.test.ts verifie qu'elles le restent.
-param([string]$Client, [switch]$NoPause)
+param([string]$Client, [switch]$NoPause, [switch]$DryRun)
 
 $ErrorActionPreference = 'Stop'
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -47,7 +48,7 @@ try {
     throw "Ce n'est pas un dossier de client Aion : $Client"
   }
   $running = Get-Process -ErrorAction SilentlyContinue | Where-Object { $_.Path -and $_.Path.StartsWith($Client, 'OrdinalIgnoreCase') }
-  if ($running) {
+  if ($running -and -not $DryRun) {
     throw 'Le jeu est ouvert : fermez-le avant d''installer.'
   }
   foreach ($path in $stock.Keys) {
@@ -88,6 +89,22 @@ try {
   }
 
   $files = @(Get-ChildItem $built -Recurse -File | ForEach-Object { $_.FullName.Substring($built.Length + 1).Replace('\', '/') })
+  if ($DryRun) {
+    $dllWhat = @{ stock = 'corrige (l''original garde dans la sauvegarde)'; outdated = 'corrige a nouveau depuis l''original de la sauvegarde'; patched = 'laisse tel quel' }
+    Write-Host "$gameDll : $($dllWhat[$dllState])"
+    foreach ($path in $files) {
+      if (($replaced -contains $path) -or ($added -contains $path)) { $what = 'ecrit a nouveau' }
+      elseif (Test-Path (Join-Path $Client $path)) { $what = 'remplace, l''original garde dans la sauvegarde' }
+      else { $what = 'ajoute' }
+      Write-Host "$path : $what"
+    }
+    foreach ($path in @($added | Where-Object { $files -notcontains $_ })) { Write-Host "$path : retire (un addon que cette version n'a plus)" }
+    if ($running) { Write-Host 'Le jeu est ouvert : il faudra le fermer avant d''installer.' -ForegroundColor Yellow }
+    Write-Host ''
+    Write-Host 'Rien n''est ecrit (-DryRun).' -ForegroundColor Green
+    if (-not $NoPause) { Read-Host 'Entree pour fermer' }
+    exit 0
+  }
   # un addon qu'une installation precedente a mis et que celle-ci n'a plus : ses fichiers s'en vont, la sauvegarde les oublie
   foreach ($path in @($added | Where-Object { $files -notcontains $_ })) {
     $target = Join-Path $Client $path

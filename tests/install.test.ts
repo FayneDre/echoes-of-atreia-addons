@@ -16,7 +16,7 @@ import {
   PATCH_FILL,
   patchEdits
 } from '../tools/gamePatch.ts'
-import { BACKUP_DIR, install, uninstall, verifyClient } from '../tools/install.ts'
+import { BACKUP_DIR, install, planInstall, uninstall, verifyClient } from '../tools/install.ts'
 import { readPak } from '../tools/pak.ts'
 import { generateSigningKey } from '../tools/signing.ts'
 import { copyOfClient, hasClient } from './clientFixture.ts'
@@ -28,8 +28,10 @@ async function repoWithAddon(): Promise<string> {
   await mkdir(join(repo, 'addons', 'Hello'), { recursive: true })
   await writeFile(join(repo, 'addons', 'Hello', 'Hello.toc'), '## Title: Hello\nHello.xml\nHello.lua\n')
   await writeFile(join(repo, 'addons', 'Hello', 'Hello.xml'), '<?xml version="1.0" encoding="UTF-8" ?>\n<Screen></Screen>\n')
-  await writeFile(join(repo, 'package.json'), '{ "version": "1.2.3-beta.4" }\n')
-  await writeFile(join(repo, 'addons', 'Hello', 'Hello.lua'), 'HELLO_VERSION = "@VERSION@";\nfunction Hello_OnLoad() end\n')
+  const pkg = { version: '1.2.3-beta.4', echoes: { minimumServer: '0.9.0-beta.1', addonApiLevel: 7 } }
+  await writeFile(join(repo, 'package.json'), `${JSON.stringify(pkg)}\n`)
+  const lua = 'HELLO_VERSION = "@VERSION@";\nHELLO_SERVER = "@MINIMUM_SERVER@";\nfunction Hello_OnLoad() end\n'
+  await writeFile(join(repo, 'addons', 'Hello', 'Hello.lua'), lua)
   return repo
 }
 
@@ -62,8 +64,8 @@ async function releaseFolder(builtDir: string): Promise<string> {
   return dir
 }
 
-async function powershell(script: string, client: string): Promise<string> {
-  const args = ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', script, '-Client', client, '-NoPause']
+async function powershell(script: string, client: string, ...extra: string[]): Promise<string> {
+  const args = ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', script, '-Client', client, '-NoPause', ...extra]
   const { stdout } = await promisify(execFile)('powershell.exe', args)
   return stdout
 }
@@ -80,6 +82,10 @@ describe.skipIf(!hasClient)('build, install and uninstall', () => {
     expect(xml.subarray(0, 2).toString('hex')).toBe('fffe')
     expect(xml.subarray(2).toString('utf16le')).toMatch(/^<\?xml version="1.0" encoding="UTF-16" \?>/)
     expect(entries[2]!.data.toString('utf8')).toContain('HELLO_VERSION = "1.2.3-beta.4";')
+    expect(entries[2]!.data.toString('utf8')).toContain('HELLO_SERVER = "0.9.0-beta.1";')
+    // what the launcher reads to pair the release with a server
+    const manifest = JSON.parse(await readFile(join(repo, 'dist', 'manifest.json'), 'utf8')) as Record<string, unknown>
+    expect(manifest).toMatchObject({ version: '1.2.3-beta.4', minimumServer: '0.9.0-beta.1', addonApiLevel: 7 })
   })
 
   it('installs so that every signed archive checks, and uninstalls to the stock files byte for byte', async () => {
@@ -123,6 +129,22 @@ describe.skipIf(!hasClient)('build, install and uninstall', () => {
     expect(sha256(await readFile(join(client, GAME_DLL)))).toBe(GAME_DLL_STOCK_SHA256)
   })
 
+  it('says what an install would do, writing nothing', async () => {
+    const client = await copyOfClient()
+    const repo = await repoWithAddon()
+    await build(repo, client, generateSigningKey())
+    await clientInstalledByAnEarlierRelease(client)
+    const before = sha256(await readFile(join(client, GAME_DLL)))
+
+    const plan = await planInstall(join(repo, 'dist', 'client'), client)
+    expect(plan).toMatchObject({ gameRunning: false, gameDll: 'outdated', removed: ['Plugin/Gone/Gone.pak'], rewritten: [] })
+    expect(plan.replaced).toContain('Pub.key')
+    expect(plan.added).toContain('Plugin/Hello/Hello.pak')
+    expect(sha256(await readFile(join(client, GAME_DLL)))).toBe(before)
+    expect(existsSync(join(client, 'Plugin', 'Gone', 'Gone.pak'))).toBe(true)
+    expect(existsSync(join(client, 'Plugin', 'Hello'))).toBe(false)
+  })
+
   it('refuses a patched game.dll whose stock copy the backup does not hold', async () => {
     const client = await copyOfClient()
     const stockKey = await readFile(join(client, 'Pub.key'))
@@ -151,6 +173,12 @@ describe.skipIf(!hasClient)('build, install and uninstall', () => {
 
     const earlier = await copyOfClient()
     await clientInstalledByAnEarlierRelease(earlier)
+    const outdated = sha256(await readFile(join(earlier, GAME_DLL)))
+    const dryRun = await powershell(join(release, 'install.ps1'), earlier, '-DryRun')
+    expect(dryRun).toMatch(/Plugin\/Gone\/Gone\.pak : retire/)
+    expect(dryRun).toMatch(/Rien n'est ecrit/)
+    expect(sha256(await readFile(join(earlier, GAME_DLL)))).toBe(outdated)
+    expect(existsSync(join(earlier, 'Plugin', 'Hello'))).toBe(false)
     await powershell(join(release, 'install.ps1'), earlier)
     expect(sha256(await readFile(join(earlier, GAME_DLL)))).toBe(GAME_DLL_PATCHED_SHA256)
     expect(existsSync(join(earlier, 'Plugin', 'Gone'))).toBe(false)

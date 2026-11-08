@@ -11,8 +11,19 @@ En jeu
   - /dps (ou /meter) ouvre et ferme le compteur.
   - Le jeu doit etre lance en 64 bits (bin64, comme le fait le launcher) : en 32 bits la fenetre du compteur reste vide.
 
+Pour voir ce que l'installation ferait sans rien changer : ouvrir PowerShell dans ce dossier et lancer
+  powershell -ExecutionPolicy Bypass -File install.ps1 -DryRun
+
 Desinstaller
   Double-clic sur uninstall.bat : le client redevient exactement comme avant.
+
+Antivirus
+  bin64\game.dll est modifie sur votre machine : un antivirus peut le signaler ou le mettre en quarantaine. Le jeu
+  ne demarre alors plus. Le fichier corrige est sur : sa modification est decrite sur
+  https://github.com/FayneDre/echoes-of-atreia-addons/blob/main/docs/game-dll.md
+  Restaurer le fichier depuis la quarantaine (Windows Defender : Securite Windows > Protection contre les
+  virus et menaces > Historique de protection), ou desinstaller puis reinstaller ; ajouter une exclusion pour le
+  dossier du client si cela recommence. En cas de doute, uninstall.bat remet le fichier d'origine.
 
 Ce qui change dans le client : Pub.key et trois fichiers .sig (bin32, func_pet, RelicCalc), bin64\game.dll (corrige pour que
 la fenetre d'un addon puisse ouvrir une page et que le jeu accepte nos addons dans son menu), dont les originaux sont
@@ -20,5 +31,6 @@ gardes dans EchoesAddonsBackup, et un dossier par addon dans Plugin (CombatMeter
 Une nouvelle version s'installe par-dessus la precedente, sans desinstaller : elle remet game.dll a jour et retire
 les addons qu'elle n'a plus.
 
-La fenetre affiche une page du serveur de jeu (port 7790) : le serveur doit etre une version qui la sert. Par defaut c'est le
+La fenetre affiche une page du serveur de jeu (port 7790) : le serveur doit etre une version qui la sert
+(v0.1.0-beta.4 ou plus recente ; sinon la fenetre reste vide, ce que dit le chat a la premiere ouverture). Par defaut c'est le
 serveur du meme ordinateur ; un serveur ailleurs se donne au lancement du jeu : -updsvr:http://<adresse>:7790

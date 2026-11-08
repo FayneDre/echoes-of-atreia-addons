@@ -4,6 +4,10 @@
   "description": "In-game interface addons for a self-hosted Aion 4.8 server with bots, installed by the Echoes of Atreia launcher.",
   "license": "GPL-3.0-or-later",
   "private": true,
+  "echoes": {
+    "minimumServer": "0.1.0-beta.4",
+    "addonApiLevel": 1
+  },
   "type": "module",
   "engines": {
     "node": ">=24"
