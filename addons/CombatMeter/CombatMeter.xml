@@ -5,7 +5,6 @@
       <OnLoad>CombatMeter_OnLoad();</OnLoad>
       <OnEvent>CombatMeter_OnEvent(this, event, ...);</OnEvent>
     </Scripts>
-    <Widget type="static" name="CombatMeterStatus" frame="8,30,404,20" flag="not_multiline;not_wordwrap;truncate" font="ui_static_title"/>
-    <Widget type="Browser" name="CombatMeterBrowser" frame="5,52,410,280"/>
+    <Widget type="Browser" name="CombatMeterBrowser" frame="5,2,410,330"/>
   </Dialog>
 </Screen>

@@ -21,29 +21,45 @@ local COLOR_G = 0.71;
 local COLOR_B = 0.42;
 
 local announced = false;
+-- the address loaded is said in the chat at the first opening only
+local shown = false;
 
 local function say(text)
 	DisplayChatMessage(0, "[Combat Meter] " .. tostring(text), COLOR_R, COLOR_G, COLOR_B);
 end
 
+-- Whatever reading the launch option does (an error, a value that is no address), the server on this machine answers.
 local function server()
-	local named = GetConsole("g_launcherUpdateURL");
-	if (named ~= nil and string.find(named, "^https?://") ~= nil) then
+	local ok, named = pcall(GetConsole, "g_launcherUpdateURL");
+	if (ok and type(named) == "string" and string.find(named, "^https?://") ~= nil) then
 		return (string.gsub(named, "/+$", ""));
 	end
 	return DEFAULT_SERVER;
 end
 
 -- The page belongs to the character named in its address, when the server sees the request come from where the game connection does.
-local function open()
+local function load()
 	local view = GetWebViewIndex(DIALOG, BROWSER);
 	if (view == nil) then
 		say("the window has no browser view");
 		return;
 	end
+	local url = server() .. PAGE .. "?name=" .. tostring(UnitName("player"));
+	if (not shown) then
+		shown = true;
+		say("page: " .. url);
+	end
 	-- The installed client's LoadUrlWithWebAuth loads the address in the view as it is: the installer patches it, the stock one only knew the
 	-- publisher's web sign-on, which is gone.
-	LoadUrlWithWebAuth(view, server() .. PAGE .. "?name=" .. tostring(UnitName("player")));
+	LoadUrlWithWebAuth(view, url);
+end
+
+-- An error here would leave the window empty without a word: it is said in the chat.
+local function open()
+	local ok, problem = pcall(load);
+	if (not ok) then
+		say("cannot open the page: " .. tostring(problem));
+	end
 end
 
 function CombatMeter_Toggle()
@@ -69,7 +85,6 @@ function CombatMeter_OnLoad()
 	SlashCmdList["COMBATMETER"] = CombatMeter_Toggle;
 	SLASH_COMBATMETER1 = "/dps";
 	SLASH_COMBATMETER2 = "/meter";
-	CombatMeterStatus:SetText("Combat Meter " .. COMBATMETER_VERSION);
 	CreateWebView(DIALOG, BROWSER);
 	CombatMeter:Hide();
 	CombatMeter:RegisterEvent("PLAYER_ENTERING_WORLD");
