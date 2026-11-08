@@ -1,4 +1,4 @@
-import { copyFile, mkdir, readdir, readFile, rm, rmdir, stat, writeFile } from 'node:fs/promises'
+import { copyFile, mkdir, open, readdir, readFile, rm, rmdir, stat, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { checkStockArchives, PUBLIC_KEY, STOCK_SIGNED_ARCHIVES } from './clientFiles.ts'
 import { GAME_DLL, gameDllState, patchGameDll } from './gamePatch.ts'
@@ -41,17 +41,57 @@ async function listFiles(dir: string, prefix = ''): Promise<string[]> {
   return files
 }
 
+/**
+ * What an earlier install kept. Only an absent manifest means none: one that cannot be read is said, as taking it for a fresh client would keep
+ * our own files as the stock ones and lose the real ones at the uninstall.
+ */
 async function readBackup(clientDir: string): Promise<Backup> {
+  const path = join(clientDir, BACKUP_DIR, BACKUP_MANIFEST)
+  let text: string
   try {
-    return JSON.parse(await readFile(join(clientDir, BACKUP_DIR, BACKUP_MANIFEST), 'utf8')) as Backup
-  } catch {
-    return { replaced: [], added: [] }
+    text = await readFile(path, 'utf8')
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+      return { replaced: [], added: [] }
+    }
+    throw error
   }
+  try {
+    const backup = JSON.parse(text) as Partial<Backup>
+    if (!Array.isArray(backup.replaced) || !Array.isArray(backup.added)) {
+      throw new Error('a list is missing')
+    }
+    return { replaced: backup.replaced, added: backup.added }
+  } catch (error) {
+    throw new Error(`${BACKUP_DIR}/${BACKUP_MANIFEST} cannot be read (${(error as Error).message}): nothing is changed, the stock files it lists would be lost`)
+  }
+}
+
+/**
+ * The running game holds `game.dll` open: refused before anything is written, rather than stopping halfway with the system's lock error. Opening
+ * the file for writing changes nothing in it.
+ */
+async function checkGameClosed(clientDir: string): Promise<void> {
+  try {
+    const handle = await open(join(clientDir, GAME_DLL), 'r+')
+    await handle.close()
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code
+    if (code === 'EBUSY' || code === 'EPERM' || code === 'EACCES') {
+      throw new Error('the game is running: close it first')
+    }
+    throw error
+  }
+}
+
+function backupText(backup: Backup): string {
+  return `${JSON.stringify(backup, null, 2)}\n`
 }
 
 export async function install(builtDir: string, clientDir: string): Promise<string[]> {
   await checkStockArchives(clientDir)
   const backup = await readBackup(clientDir)
+  await checkGameClosed(clientDir)
   if ((await gameDllState(clientDir)) === 'patched' && !backup.replaced.includes(GAME_DLL)) {
     throw new Error(`${GAME_DLL} is patched already but the backup has no stock copy of it: an uninstall could not put it back`)
   }
@@ -68,7 +108,7 @@ export async function install(builtDir: string, clientDir: string): Promise<stri
       }
       // written after each file, so an install cut short still knows what to undo
       await mkdir(join(clientDir, BACKUP_DIR), { recursive: true })
-      await writeFile(join(clientDir, BACKUP_DIR, BACKUP_MANIFEST), `${JSON.stringify(backup, null, 2)}\n`)
+      await writeFile(join(clientDir, BACKUP_DIR, BACKUP_MANIFEST), backupText(backup))
     }
     await mkdir(dirname(target), { recursive: true })
     await copyFile(join(builtDir, path), target)
@@ -77,8 +117,7 @@ export async function install(builtDir: string, clientDir: string): Promise<stri
   await patchGameDll(clientDir, keptAlready ? null : join(clientDir, BACKUP_DIR, GAME_DLL))
   if (!keptAlready) {
     backup.replaced.push(GAME_DLL)
-    await writeFile(join(clientDir, BACKUP_DIR, BACKUP_MANIFEST), `${JSON.stringify(backup, null, 2)}
-`)
+    await writeFile(join(clientDir, BACKUP_DIR, BACKUP_MANIFEST), backupText(backup))
   }
   await verifyClient(clientDir)
   return files
@@ -86,6 +125,7 @@ export async function install(builtDir: string, clientDir: string): Promise<stri
 
 export async function uninstall(clientDir: string): Promise<void> {
   const backup = await readBackup(clientDir)
+  await checkGameClosed(clientDir)
   for (const path of backup.replaced) {
     await copyFile(join(clientDir, BACKUP_DIR, path), join(clientDir, path))
   }

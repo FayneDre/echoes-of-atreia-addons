@@ -33,9 +33,9 @@ import { sha256 } from './clientFiles.ts'
 export const GAME_DLL = 'bin64/game.dll'
 export const GAME_DLL_STOCK_SHA256 = '5334cf2164468678e45fe1a5decf58a0fbc4fd7f22cfdcbb87d28edce8d2c11c'
 export const GAME_DLL_PATCHED_SHA256 = 'd1174b32e55e0189194e143c4a3008b54bcc0e2dd62def87c87c2c3865f34d73'
-const FUNCTION_START = 0x6058c0
-const FUNCTION_END = 0x605b93
-const BODY = Buffer.from(
+export const FUNCTION_START = 0x6058c0
+export const FUNCTION_END = 0x605b93
+export const BODY = Buffer.from(
   '4883ec28488b4118488d5020483b5110772483780803751e837818047518f20f2c104c8b40104983c018488d0d5f5fd000e88a73b2ff31c04883c428c3',
   'hex'
 )

@@ -69,6 +69,18 @@ describe.skipIf(!hasClient)('build, install and uninstall', () => {
     expect(await readFile(join(client, 'Pub.key'))).toEqual(stockKey)
   })
 
+  it('refuses a backup it cannot read rather than taking the client for a fresh one', async () => {
+    const client = await copyOfClient()
+    const stockKey = await readFile(join(client, 'Pub.key'))
+    const repo = await repoWithAddon()
+    await build(repo, client, generateSigningKey())
+    await mkdir(join(client, BACKUP_DIR), { recursive: true })
+    await writeFile(join(client, BACKUP_DIR, 'backup.json'), '{ "replaced": [')
+    await expect(install(join(repo, 'dist', 'client'), client)).rejects.toThrow(/cannot be read/)
+    await expect(uninstall(client)).rejects.toThrow(/cannot be read/)
+    expect(await readFile(join(client, 'Pub.key'))).toEqual(stockKey)
+  })
+
   it('refuses a client whose signed archives are not the stock ones', async () => {
     const client = await copyOfClient()
     const repo = await repoWithAddon()
