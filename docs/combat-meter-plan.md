@@ -1,6 +1,6 @@
 # Combat meter
 
-Status: built, unverified: the count and the page in a real fight, a client on another machine than the server, the launcher's part (step 4).
+Status: built, unverified: the count and the page in a real fight, a client on another machine than the server (`-updsvr`), the launcher's part (step 4).
 
 The group's damage and healing in a window of the game, per member, bots included: damage done and per second, healing done and per second,
 the healing that went over full health, and each member's skills. Asked for by a tester who plays a healer alongside a damage dealer.
@@ -21,7 +21,11 @@ own. The server sees every hit and every heal with who gave it: they all go thro
   The installer patches the function to load the address as it is ([tools/gamePatch.ts](../tools/gamePatch.ts)).
 - The browser carries nothing of the game session. The addon names its character (`?name=`, from `UnitName("player")`), and the server shows that
   character's page only to a request from the address its game connection comes from (the server's own addresses counting as one).
-- The server's address: `127.0.0.1:7790` by default, else the launch option `-updsvr:http://<host>:<port>` (read with `GetConsole`).
+- The server's address: `127.0.0.1:7790` by default, else the launch option `-updsvr:http://<host>:<port>`, read with `GetConsole`, which the
+  client gives only to a plugin asking `## Require: console`. Asked for since 8 November; reading the option is unverified in game.
+- An entry "Combat Meter" in the game's menu, under "Additional Functions", runs `/dps`: `RegisterMenu`, given to a plugin asking
+  `## Require: menu` that the client trusts. Verified in game on 8 November, once the installer added the addon to the client's trusted plugins
+  ([game-dll.md](game-dll.md)).
 
 ## Steps
 

@@ -7,14 +7,18 @@ Installer
 
 En jeu
   - A la connexion du personnage, la ligne [Combat Meter] loaded apparait dans le chat.
-  - /dps (ou /meter) ouvre et ferme la fenetre.
+  - Le menu du jeu a une entree de plus, Combat Meter, sous Additional Functions (a cote de Relic Appraiser).
+  - /dps (ou /meter) ouvre et ferme le compteur.
+  - Le jeu doit etre lance en 64 bits (bin64, comme le fait le launcher) : en 32 bits la fenetre du compteur reste vide.
 
 Desinstaller
   Double-clic sur uninstall.bat : le client redevient exactement comme avant.
 
 Ce qui change dans le client : Pub.key et trois fichiers .sig (bin32, func_pet, RelicCalc), bin64\game.dll (corrige pour que
-la fenetre d'un addon puisse ouvrir une page), dont les originaux sont gardes dans EchoesAddonsBackup, et le dossier
-Plugin\CombatMeter.
+la fenetre d'un addon puisse ouvrir une page et que le jeu accepte nos addons dans son menu), dont les originaux sont
+gardes dans EchoesAddonsBackup, et un dossier par addon dans Plugin (CombatMeter).
+Une nouvelle version s'installe par-dessus la precedente, sans desinstaller : elle remet game.dll a jour et retire
+les addons qu'elle n'a plus.
 
 La fenetre affiche une page du serveur de jeu (port 7790) : le serveur doit etre une version qui la sert. Par defaut c'est le
 serveur du meme ordinateur ; un serveur ailleurs se donne au lancement du jeu : -updsvr:http://<adresse>:7790

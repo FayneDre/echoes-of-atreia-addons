@@ -9,12 +9,15 @@
 COMBATMETER_VERSION = "@VERSION@";
 
 -- Where the game server serves its addon pages when the launch does not say: the server on this machine. A launch with
--- "-updsvr:http://<host>:<port>" names another one (the client keeps that option's text, which it uses for nothing else).
+-- "-updsvr:http://<host>:<port>" names another one (the client keeps that option's text, which it uses for nothing else). GetConsole
+-- exists only for a plugin granted the "console" group, which the .toc asks for: without it the server on this machine is used.
 local DEFAULT_SERVER = "http://127.0.0.1:7790";
 local PAGE = "/addon/combat-meter";
 
 local DIALOG = "CombatMeter";
 local BROWSER = "CombatMeterBrowser";
+-- an icon of the game's own menu, until the addons have their own
+local MENU_ICON = "v5_start_menu_11_up";
 
 local COLOR_R = 0.85;
 local COLOR_G = 0.71;
@@ -23,6 +26,8 @@ local COLOR_B = 0.42;
 local announced = false;
 -- the address loaded is said in the chat at the first opening only
 local shown = false;
+-- why the game's menu took no entry, if it refused one
+local menuProblem = nil;
 
 local function say(text)
 	DisplayChatMessage(0, "[Combat Meter] " .. tostring(text), COLOR_R, COLOR_G, COLOR_B);
@@ -77,6 +82,9 @@ function CombatMeter_OnEvent(this, event, ...)
 	if (event == "PLAYER_ENTERING_WORLD" and not announced) then
 		announced = true;
 		say("loaded " .. COMBATMETER_VERSION .. ": /dps opens the window");
+		if (menuProblem ~= nil) then
+			say("no entry in the game's menu: " .. menuProblem);
+		end
 	end
 end
 
@@ -88,4 +96,12 @@ function CombatMeter_OnLoad()
 	CreateWebView(DIALOG, BROWSER);
 	CombatMeter:Hide();
 	CombatMeter:RegisterEvent("PLAYER_ENTERING_WORLD");
+	-- an entry of the game's menu, under "Additional Functions": last, as a menu that refuses must not cost the rest. RegisterMenu exists only
+	-- for a plugin granted the "menu" group, which the client grants only to the plugins it trusts: the installer's patch of game.dll adds
+	-- this addon to them (TRUSTED_ADDONS in tools/gamePatch.ts, docs/game-dll.md).
+	local ok, problem = pcall(RegisterMenu, "Combat Meter", "/dps", MENU_ICON);
+	if (not ok) then
+		-- the chat is not there yet while the addons load: said when the character enters the world
+		menuProblem = tostring(problem);
+	end
 end

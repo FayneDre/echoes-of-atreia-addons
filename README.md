@@ -17,11 +17,21 @@ In-game interface addons for a self-hosted Aion 4.8 server with bots. The Echoes
   content unchanged.
 - The client's Lua cannot tell who healed whom: no healing event, only damage events without a reliable source. So the server counts, and an addon
   shows the server's page in its window: `CreateWebView(dialog, widget)`, then `LoadUrlWithWebAuth(GetWebViewIndex(dialog, widget), url)`.
-- That call went through the publisher's web sign-on, which is gone: installing patches `bin64/game.dll` (61 bytes, [tools/gamePatch.ts](tools/gamePatch.ts))
-  so that it loads the address as it is. Only the stock file is patched, recognised by its fingerprint, and on the player's machine; the stock
-  file is kept with the others and put back by the uninstall.
+- That call went through the publisher's web sign-on, which is gone, and an addon gets the client's menu and console functions only if the client
+  trusts it as one of the publisher's plugins. Installing patches `bin64/game.dll` for both ([docs/game-dll.md](docs/game-dll.md),
+  [tools/gamePatch.ts](tools/gamePatch.ts)): the call loads the address as it is, and our addons' names take free slots of the client's list of
+  trusted plugins. **A new addon gets its name in `TRUSTED_ADDONS`**, or the client does not load it (a test says so).
+- Only the stock file is patched, recognised by its fingerprint, on the player's machine; the stock file is kept with the others and put back by
+  the uninstall. A file an earlier build patched is patched again from that copy. The 32-bit client (`bin32/game.dll`) is not patched:
+  launched in 32 bits, an addon's window stays empty. The launcher starts the 64-bit one.
+- What an addon may call is asked for in its `.toc`: `## Require: string`, `menu`, `console` (the groups are in docs/game-dll.md).
+- An entry of the game's menu, under "Additional Functions": `RegisterMenu(label, "/command", icon)`, the command run by a click and the icon a
+  skin of the client's (`v5_start_menu_<n>_up`), as the stock `RelicCalc` does. The call is made last and through `pcall`, a refusal said in the
+  chat when the character enters the world.
 - The page is the server's on the same machine (`http://127.0.0.1:7790`) unless the client is launched with `-updsvr:http://<host>:<port>`, an
-  option whose text the client keeps and uses for nothing else, and which the addon reads (`GetConsole("g_launcherUpdateURL")`).
+  option whose text the client keeps and uses for nothing else, and which the addon reads (`GetConsole("g_launcherUpdateURL")`, hence
+  `## Require: console`).
+- Each addon has its own Lua globals: one cannot read another's tables.
 
 ## Tools
 

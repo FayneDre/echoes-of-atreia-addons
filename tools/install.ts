@@ -1,14 +1,15 @@
 import { copyFile, mkdir, open, readdir, readFile, rm, rmdir, stat, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { checkStockArchives, PUBLIC_KEY, STOCK_SIGNED_ARCHIVES } from './clientFiles.ts'
-import { GAME_DLL, gameDllState, patchGameDll } from './gamePatch.ts'
+import { GAME_DLL, gameDllState, patchedGameDll, type GameDllState } from './gamePatch.ts'
 import { verifySignatureFile } from './signing.ts'
 
 /**
  * Puts a built tree (`dist/client`) over a client, and takes it off again leaving the client as it was.
  * Every client file replaced is kept first in `EchoesAddonsBackup/`, once: installing again over an install keeps the stock files, not ours.
  * The backup's `backup.json` says what was replaced and what was added, which is all an uninstall needs.
- * The client's `game.dll` is patched on the way (see `gamePatch.ts`), its stock file kept like the others.
+ * The client's `game.dll` is patched on the way (see `gamePatch.ts`), its stock file kept like the others; a client an earlier release
+ * patched is patched again, and the files of an addon an earlier install added and this build no longer carries are removed.
  */
 
 export const BACKUP_DIR = 'EchoesAddonsBackup'
@@ -88,14 +89,27 @@ function backupText(backup: Backup): string {
   return `${JSON.stringify(backup, null, 2)}\n`
 }
 
+/** Removes a file an install added and the folder it leaves empty: the addon's own folder goes with its last file. */
+async function removeAdded(clientDir: string, path: string): Promise<void> {
+  await rm(join(clientDir, path), { force: true })
+  await rmdir(dirname(join(clientDir, path))).catch(() => undefined)
+}
+
 export async function install(builtDir: string, clientDir: string): Promise<string[]> {
   await checkStockArchives(clientDir)
   const backup = await readBackup(clientDir)
   await checkGameClosed(clientDir)
-  if ((await gameDllState(clientDir)) === 'patched' && !backup.replaced.includes(GAME_DLL)) {
+  const dllState = await gameDllState(clientDir)
+  if (dllState !== 'stock' && !backup.replaced.includes(GAME_DLL)) {
     throw new Error(`${GAME_DLL} is patched already but the backup has no stock copy of it: an uninstall could not put it back`)
   }
   const files = await listFiles(builtDir)
+  // an addon an earlier install put there and this build no longer carries: its files go, the backup forgets them
+  for (const path of backup.added.filter((added) => !files.includes(added))) {
+    await removeAdded(clientDir, path)
+    backup.added = backup.added.filter((added) => added !== path)
+    await writeFile(join(clientDir, BACKUP_DIR, BACKUP_MANIFEST), backupText(backup))
+  }
   for (const path of files) {
     const target = join(clientDir, path)
     if (!backup.replaced.includes(path) && !backup.added.includes(path)) {
@@ -113,14 +127,29 @@ export async function install(builtDir: string, clientDir: string): Promise<stri
     await mkdir(dirname(target), { recursive: true })
     await copyFile(join(builtDir, path), target)
   }
-  const keptAlready = backup.replaced.includes(GAME_DLL)
-  await patchGameDll(clientDir, keptAlready ? null : join(clientDir, BACKUP_DIR, GAME_DLL))
-  if (!keptAlready) {
+  await patchClientDll(clientDir, dllState, backup)
+  await verifyClient(clientDir)
+  return files
+}
+
+/**
+ * Leaves the client's `game.dll` patched as this release patches it. A stock file is kept in the backup first (unless the backup holds one
+ * already, a stock file put back by a repair of the client say); a file an earlier release patched is patched again from that stock copy.
+ */
+async function patchClientDll(clientDir: string, state: GameDllState, backup: Backup): Promise<void> {
+  if (state === 'patched') {
+    return
+  }
+  const live = join(clientDir, GAME_DLL)
+  const stockCopy = join(clientDir, BACKUP_DIR, GAME_DLL)
+  if (state === 'stock' && !backup.replaced.includes(GAME_DLL)) {
+    await mkdir(dirname(stockCopy), { recursive: true })
+    await copyFile(live, stockCopy)
     backup.replaced.push(GAME_DLL)
     await writeFile(join(clientDir, BACKUP_DIR, BACKUP_MANIFEST), backupText(backup))
   }
-  await verifyClient(clientDir)
-  return files
+  // patchedGameDll refuses anything but the stock file: a backup copy that is not one stops here, before the live file is touched
+  await writeFile(live, patchedGameDll(await readFile(state === 'stock' ? live : stockCopy)))
 }
 
 export async function uninstall(clientDir: string): Promise<void> {
@@ -130,9 +159,7 @@ export async function uninstall(clientDir: string): Promise<void> {
     await copyFile(join(clientDir, BACKUP_DIR, path), join(clientDir, path))
   }
   for (const path of backup.added) {
-    await rm(join(clientDir, path), { force: true })
-    // the addon's own folder goes with its files; a folder still holding something is left
-    await rmdir(dirname(join(clientDir, path))).catch(() => undefined)
+    await removeAdded(clientDir, path)
   }
   await rm(join(clientDir, BACKUP_DIR), { recursive: true, force: true })
 }

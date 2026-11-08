@@ -1,5 +1,5 @@
 # Remet le client Aion tel qu'il etait avant install.ps1 : les fichiers d'origine reviennent, ceux des addons s'en vont.
-param([string]$Client)
+param([string]$Client, [switch]$NoPause)
 
 $ErrorActionPreference = 'Stop'
 $backupDir = 'EchoesAddonsBackup'
@@ -35,5 +35,6 @@ try {
 } catch {
   Write-Host ''
   Write-Host $_.Exception.Message -ForegroundColor Red
+  if ($NoPause) { exit 1 }
 }
-Read-Host 'Entree pour fermer'
+if (-not $NoPause) { Read-Host 'Entree pour fermer' }
