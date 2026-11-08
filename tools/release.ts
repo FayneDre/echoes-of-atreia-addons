@@ -1,4 +1,4 @@
-import { execFile } from 'node:child_process'
+import { exec, execFile } from 'node:child_process'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { promisify } from 'node:util'
@@ -95,7 +95,8 @@ export async function makeRelease(repoDir: string, options: ReleaseOptions): Pro
   }
 
   options.log('npm test...')
-  await run('npm', ['test'], { cwd: repoDir, shell: true }).catch((error: { stdout?: string }) => {
+  // npm is a batch file on Windows, which only a shell starts: given as one command line, with nothing of ours in it
+  await promisify(exec)('npm test', { cwd: repoDir }).catch((error: { stdout?: string }) => {
     throw new Error(`npm test failed:\n${(error.stdout ?? '').split('\n').slice(-30).join('\n')}`)
   })
   options.log('build and package...')
