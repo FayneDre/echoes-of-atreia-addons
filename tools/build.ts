@@ -22,7 +22,8 @@ export interface Release {
 }
 
 export async function readRelease(repoDir: string): Promise<Release> {
-  const pkg = JSON.parse(await readFile(join(repoDir, 'package.json'), 'utf8')) as {
+  // a byte order mark, as a Windows editor may write one, is no reason to refuse the file
+  const pkg = JSON.parse((await readFile(join(repoDir, 'package.json'), 'utf8')).replace(/^﻿/, '')) as {
     version: string
     echoes?: { minimumServer?: string; addonApiLevel?: number }
   }

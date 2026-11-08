@@ -2,6 +2,7 @@ import { execFile } from 'node:child_process'
 import { cp, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { promisify } from 'node:util'
+import { readRelease } from './build.ts'
 
 /**
  * The zip a release carries: `client/` as the build laid it out, the PowerShell scripts that install and remove it without these tools, and the
@@ -19,7 +20,7 @@ function windowsLines(text: string): string {
 }
 
 export async function packageRelease(repoDir: string): Promise<string> {
-  const { version } = JSON.parse(await readFile(join(repoDir, 'package.json'), 'utf8')) as { version: string }
+  const { version } = await readRelease(repoDir)
   const stage = join(repoDir, 'dist', 'package')
   await rm(stage, { recursive: true, force: true })
   await mkdir(stage, { recursive: true })
